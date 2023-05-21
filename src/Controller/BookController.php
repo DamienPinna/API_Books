@@ -14,6 +14,7 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class BookController extends AbstractController {
   #[Route('/api/books', name: 'books', methods: ['GET'])]
@@ -37,13 +38,19 @@ class BookController extends AbstractController {
   }
 
   #[Route('/api/create/book', name: 'create-book', methods: ['POST'])]
-  public function createOneBook(Request $request, SerializerInterface $serializerInterface, EntityManagerInterface $entityManagerInterface, UrlGeneratorInterface $urlGeneratorInterface, AuthorRepository $authorRepository): JsonResponse {
+  public function createOneBook(Request $request, SerializerInterface $serializerInterface, EntityManagerInterface $entityManagerInterface, UrlGeneratorInterface $urlGeneratorInterface, AuthorRepository $authorRepository, ValidatorInterface $validatorInterface): JsonResponse {
     $book = $serializerInterface->deserialize($request->getContent(), Book::class, 'json');
 
     $content = $request->toArray();
     $idAuthor = $content['idAuthor'] ?? -1;
 
     $book->setAuthor($authorRepository->find($idAuthor));
+
+    $errors = $validatorInterface->validate($book);
+    if ($errors->count() > 0) {
+      return new JsonResponse($serializerInterface->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+      // throw new HttpException(JsonResponse::HTTP_BAD_REQUEST, "La requête est invalide");
+    }
 
     $entityManagerInterface->persist($book);
     $entityManagerInterface->flush();
