@@ -46,7 +46,6 @@ class Book {
 
   public function setTitle(string $title): self {
     $this->title = $title;
-
     return $this;
   }
 
@@ -56,7 +55,6 @@ class Book {
 
   public function setCoverText(?string $coverText): self {
     $this->coverText = $coverText;
-
     return $this;
   }
 
@@ -66,7 +64,6 @@ class Book {
 
   public function setAuthor(?Author $author): self {
     $this->author = $author;
-
     return $this;
   }
 }
