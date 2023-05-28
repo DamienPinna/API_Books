@@ -16,15 +16,24 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class BookController extends AbstractController {
   #[Route('/api/books', name: 'books', methods: ['GET'])]
-  public function getAllBooks(BookRepository $bookRepository, SerializerInterface $serializerInterface, Request $request): JsonResponse {
+  public function getAllBooks(BookRepository $bookRepository, SerializerInterface $serializerInterface, Request $request, TagAwareCacheInterface $tagAwareCacheInterface): JsonResponse {
     $page = $request->get('page', 1);
     $limit = $request->get('limit', 3);
 
-    $bookList = $bookRepository->findAllWithPagination($page, $limit);
-    $jsonBookList = $serializerInterface->serialize($bookList, 'json', ['groups' => 'getBooks']);
+    $idCache = "getAllBooks-" . $page . "-" . $limit;
+
+    $jsonBookList = $tagAwareCacheInterface->get($idCache, function (ItemInterface $itemInterface) use ($bookRepository, $page, $limit, $serializerInterface) {
+      echo 'mise en cache';
+      $itemInterface->tag('booksCache');
+      $bookList = $bookRepository->findAllWithPagination($page, $limit);
+      return $serializerInterface->serialize($bookList, 'json', ['groups' => 'getBooks']);
+    });
+
     return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
   }
 
@@ -35,7 +44,8 @@ class BookController extends AbstractController {
   }
 
   #[Route('/api/delete/book/{id}', name: 'delete-book', methods: ['DELETE'])]
-  public function deleteOneBook(Book $book, EntityManagerInterface $entityManagerInterface): JsonResponse {
+  public function deleteOneBook(Book $book, EntityManagerInterface $entityManagerInterface, TagAwareCacheInterface $tagAwareCacheInterface): JsonResponse {
+    $tagAwareCacheInterface->invalidateTags(["booksCache"]);
     $entityManagerInterface->remove($book);
     $entityManagerInterface->flush();
     return new JsonResponse(null, Response::HTTP_NO_CONTENT);
